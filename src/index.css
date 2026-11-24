@@ -1,0 +1,174 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* 1. Clean Light (Default) */
+:root,
+[data-theme="light"] {
+  --bg-canvas: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --border-hairline: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-ink: #1d4ed8;
+  --accent-contrast: #ffffff;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --shadow-subtle: 0 1px 2px rgba(15, 23, 42, 0.05);
+  color-scheme: light;
+}
+
+/* 2. Midnight Dark */
+[data-theme="dark"] {
+  --bg-canvas: #0b1120;
+  --bg-surface: #11192c;
+  --bg-subtle: #18233a;
+  --bg-hover: #21304f;
+  --border-hairline: #1e2d48;
+  --border-strong: #314468;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: #172554;
+  --accent-ink: #93c5fd;
+  --accent-contrast: #ffffff;
+  --success: #4ade80;
+  --success-soft: #052e16;
+  --warning: #fbbf24;
+  --warning-soft: #451a03;
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+/* 3. Ocean Blue */
+[data-theme="ocean"] {
+  --bg-canvas: #edf6fc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #dff0fa;
+  --bg-hover: #cbe4f5;
+  --border-hairline: #c7e0f0;
+  --border-strong: #9cc6e2;
+  --text-primary: #0b2540;
+  --text-secondary: #2c4f70;
+  --text-muted: #4b6e8e;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-soft: #e0f2fe;
+  --accent-ink: #0369a1;
+  --accent-contrast: #ffffff;
+  --success: #0f766e;
+  --success-soft: #f0fdfa;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #be123c;
+  --danger-soft: #fff1f2;
+  --shadow-subtle: 0 1px 2px rgba(11, 37, 64, 0.06);
+  color-scheme: light;
+}
+
+/* 4. Pastel Pink */
+[data-theme="pastel-pink"] {
+  --bg-canvas: #fdf4f7;
+  --bg-surface: #ffffff;
+  --bg-subtle: #fae8ef;
+  --bg-hover: #f5d5e2;
+  --border-hairline: #f2d0de;
+  --border-strong: #e3acc2;
+  --text-primary: #2d1422;
+  --text-secondary: #5c3349;
+  --text-muted: #7d5268;
+  --accent: #db2777;
+  --accent-hover: #be185d;
+  --accent-soft: #fce7f3;
+  --accent-ink: #be185d;
+  --accent-contrast: #ffffff;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --shadow-subtle: 0 1px 2px rgba(45, 20, 34, 0.06);
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  [data-theme="dark"] body {
+    letter-spacing: 0.008em;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

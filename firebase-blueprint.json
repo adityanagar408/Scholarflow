@@ -1,0 +1,319 @@
+{
+  "entities": {
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Private student account profile containing PII (owner-only access).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "minLength": 3, "maxLength": 200 },
+        "college": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "branch": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "year": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "bio": { "type": "string", "maxLength": 600 },
+        "avatarDataUrl": { "type": "string", "maxLength": 250000 },
+        "theme": { "type": "string", "enum": ["light", "dark", "ocean", "pastel-pink"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "college", "branch", "year", "bio", "theme", "createdAt", "updatedAt"]
+    },
+    "StudentDirectoryEntry": {
+      "title": "StudentDirectoryEntry",
+      "description": "Non-PII directory lookup keyed by SHA-256 hex digest of lowercased student email for starting 1-on-1 classmate chats.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "college": { "type": "string", "maxLength": 160 },
+        "branch": { "type": "string", "maxLength": 120 },
+        "year": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "college", "branch", "year", "createdAt", "updatedAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Student subject with progress, marks, credits, and logged study minutes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "code": { "type": "string", "maxLength": 40 },
+        "credits": { "type": "number" },
+        "targetScore": { "type": "number" },
+        "currentProgress": { "type": "number" },
+        "currentMarks": { "type": "number" },
+        "maxMarks": { "type": "number" },
+        "color": { "type": "string", "maxLength": 32 },
+        "studyMinutes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "code", "credits", "targetScore", "currentProgress", "maxMarks", "color", "studyMinutes", "createdAt", "updatedAt"]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Completed Pomodoro or manual focus session logged by a student.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "durationMinutes": { "type": "number" },
+        "mode": { "type": "string", "enum": ["pomodoro", "manual"] },
+        "note": { "type": "string", "maxLength": 400 },
+        "completedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "durationMinutes", "mode", "note", "completedAt", "createdAt"]
+    },
+    "NoteFolder": {
+      "title": "NoteFolder",
+      "description": "Custom folder or nested subfolder organizing student notes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "parentId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "createdAt", "updatedAt"]
+    },
+    "NoteItem": {
+      "title": "NoteItem",
+      "description": "Structured markdown lecture note with tags, favorite flag, and optional share code.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "folderId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 100000 },
+        "tags": { "type": "array" },
+        "isFavorite": { "type": "boolean" },
+        "shareCode": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "content", "tags", "isFavorite", "createdAt", "updatedAt"]
+    },
+    "SharedNote": {
+      "title": "SharedNote",
+      "description": "Cross-device shareable note snapshot retrieved by unique share code (NOTE-XXXXXX).",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^NOTE-[A-Z0-9]{6}$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 100000 },
+        "tags": { "type": "array" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "authorCollege": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "ownerId", "title", "content", "tags", "authorName", "authorCollege", "createdAt", "updatedAt"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "Personal exam, assignment deadline, fest, club, or class schedule item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "category": { "type": "string", "enum": ["exam", "assignment", "fest", "club", "class", "personal"] },
+        "color": { "type": "string", "maxLength": 32 },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 16 },
+        "time": { "type": "string", "maxLength": 16 },
+        "location": { "type": "string", "maxLength": 160 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "category", "color", "date", "time", "location", "notes", "createdAt", "updatedAt"]
+    },
+    "CoCurricularLog": {
+      "title": "CoCurricularLog",
+      "description": "Participation record across NCC, NSS, Sports, Cultural Clubs, and Hackathons.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "category": { "type": "string", "enum": ["NCC", "NSS", "Sports", "Cultural Clubs", "Hackathons", "Other"] },
+        "type": { "type": "string", "enum": ["Drill", "Camp", "Tournament", "Workshop", "Volunteering", "Competition", "Event"] },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 16 },
+        "hours": { "type": "number" },
+        "role": { "type": "string", "maxLength": 120 },
+        "certificateTitle": { "type": "string", "maxLength": 180 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "category", "type", "date", "hours", "role", "certificateTitle", "notes", "createdAt", "updatedAt"]
+    },
+    "TodoTask": {
+      "title": "TodoTask",
+      "description": "Daily checklist task optionally linked to a subject and due date.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "subjectId": { "type": "string", "maxLength": 128 },
+        "dueDate": { "type": "string", "maxLength": 16 },
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "priority", "dueDate", "completed", "createdAt", "updatedAt"]
+    },
+    "DailyHabit": {
+      "title": "DailyHabit",
+      "description": "Recurring daily study or wellness habit with bounded completion dates list.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "targetDaysPerWeek": { "type": "number" },
+        "completedDates": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "targetDaysPerWeek", "completedDates", "createdAt", "updatedAt"]
+    },
+    "ChatChannel": {
+      "title": "ChatChannel",
+      "description": "Real-time 1-on-1 direct message channel or Study Group channel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["direct", "group"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 300 },
+        "inviteCode": { "type": "string", "maxLength": 32 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "lastMessageText": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "name", "description", "createdBy", "lastMessageText", "createdAt", "updatedAt"]
+    },
+    "ChannelMembership": {
+      "title": "ChannelMembership",
+      "description": "Relational membership link (docId = {channelId}__{uid}) used as Master Gate for chat access and real-time sidebar discovery.",
+      "type": "object",
+      "properties": {
+        "channelId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["owner", "member"] },
+        "channelType": { "type": "string", "enum": ["direct", "group"] },
+        "channelName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["channelId", "uid", "displayName", "role", "channelType", "channelName", "joinedAt"]
+    },
+    "GroupInvite": {
+      "title": "GroupInvite",
+      "description": "Invite code lookup document (GRP-XXXXXX) resolving a study group channel ID.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 6, "maxLength": 32, "pattern": "^GRP-[A-Z0-9]{6}$" },
+        "channelId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "channelName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "channelId", "channelName", "createdBy", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time message in a channel with optional note or event attachment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "channelId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "text": { "type": "string", "maxLength": 4000 },
+        "attachment": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "channelId", "senderId", "senderName", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Private student profile containing PII (owner-only get/create/update/delete, list disabled)."
+    },
+    "/users/{userId}/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Student's private subjects."
+    },
+    "/users/{userId}/studySessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StudySession" },
+      "description": "Student's logged Pomodoro and manual study sessions."
+    },
+    "/users/{userId}/folders/{folderId}": {
+      "schema": { "$ref": "#/entities/NoteFolder" },
+      "description": "Student's custom note folders and subfolders."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/NoteItem" },
+      "description": "Student's structured markdown notes."
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/CalendarEvent" },
+      "description": "Student's calendar events and assignment deadlines."
+    },
+    "/users/{userId}/coCurricularLogs/{logId}": {
+      "schema": { "$ref": "#/entities/CoCurricularLog" },
+      "description": "Student's co-curricular activity logs across NCC, NSS, Sports, Clubs, and Hackathons."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/TodoTask" },
+      "description": "Student's daily to-do checklist tasks."
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/DailyHabit" },
+      "description": "Student's daily recurring habits."
+    },
+    "/studentDirectory/{emailHash}": {
+      "schema": { "$ref": "#/entities/StudentDirectoryEntry" },
+      "description": "Non-PII directory keyed by SHA-256 hash of lowercased email for classmate chat lookup."
+    },
+    "/sharedNotes/{shareCode}": {
+      "schema": { "$ref": "#/entities/SharedNote" },
+      "description": "Cross-device shareable note snapshots fetched by exact share code."
+    },
+    "/channels/{channelId}": {
+      "schema": { "$ref": "#/entities/ChatChannel" },
+      "description": "1-on-1 direct message channels and Study Group channels."
+    },
+    "/channels/{channelId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time messages inside a channel, gated by ChannelMembership."
+    },
+    "/channelMemberships/{membershipId}": {
+      "schema": { "$ref": "#/entities/ChannelMembership" },
+      "description": "Relational channel membership records (docId = {channelId}__{uid})."
+    },
+    "/groupInvites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/GroupInvite" },
+      "description": "Invite code lookup records (GRP-XXXXXX) resolving a study group channel."
+    }
+  }
+}

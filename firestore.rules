@@ -1,0 +1,669 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Phase 3: Hardened Global Primitives
+    // =========================================================================
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidHashId(id) {
+      return id is string && id.size() == 64 && id.matches('^[a-f0-9]{64}$');
+    }
+
+    function isValidShareCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 32 && code.matches('^NOTE-[A-Z0-9]{6}$');
+    }
+
+    function isValidInviteCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 32 && code.matches('^GRP-[A-Z0-9]{6}$');
+    }
+
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || data[key] == null || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isOptionalId(data, key) {
+      return !(key in data) || data[key] == null || isValidId(data[key]);
+    }
+
+    function isValidTagsList(tags) {
+      return tags is list
+        && tags.size() <= 15
+        && (tags.size() == 0 || (tags[0] is string && tags[0].size() >= 1 && tags[0].size() <= 40));
+    }
+
+    function isValidDateList(dates) {
+      return dates is list
+        && dates.size() <= 400
+        && (dates.size() == 0 || (dates[0] is string && dates[0].size() == 10 && dates[0].matches('^\\d{4}-\\d{2}-\\d{2}$')));
+    }
+
+    function isChannelMember(channelId) {
+      return isVerifiedUser()
+        && isValidId(channelId)
+        && exists(/databases/$(database)/documents/channelMemberships/$(channelId + '__' + request.auth.uid));
+    }
+
+    // =========================================================================
+    // Validation Blueprints (Phase 2 & Pillar 2)
+    // =========================================================================
+
+    function isValidStudentProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'college', 'branch', 'year', 'bio', 'theme', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'college', 'branch', 'year', 'bio', 'avatarDataUrl', 'theme', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.college is string && data.college.size() >= 1 && data.college.size() <= 160
+        && data.branch is string && data.branch.size() >= 1 && data.branch.size() <= 120
+        && data.year is string && data.year.size() >= 1 && data.year.size() <= 40
+        && data.bio is string && data.bio.size() <= 600
+        && isOptionalString(data, 'avatarDataUrl', 250000)
+        && data.theme in ['light', 'dark', 'ocean', 'pastel-pink']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudentDirectoryEntry(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'college', 'branch', 'year', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'college', 'branch', 'year', 'createdAt', 'updatedAt'])
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.college is string && data.college.size() <= 160
+        && data.branch is string && data.branch.size() <= 120
+        && data.year is string && data.year.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSubject(data, subjectId) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'code', 'credits', 'targetScore', 'currentProgress', 'maxMarks', 'color', 'studyMinutes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'name', 'code', 'credits', 'targetScore', 'currentProgress', 'currentMarks', 'maxMarks', 'color', 'studyMinutes', 'createdAt', 'updatedAt'])
+        && data.id == subjectId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 140
+        && data.code is string && data.code.size() <= 40
+        && data.credits is number && data.credits >= 0 && data.credits <= 30
+        && data.targetScore is number && data.targetScore >= 0 && data.targetScore <= 100
+        && data.currentProgress is number && data.currentProgress >= 0 && data.currentProgress <= 100
+        && (!('currentMarks' in data) || data.currentMarks == null || (data.currentMarks is number && data.currentMarks >= 0 && data.currentMarks <= 10000))
+        && data.maxMarks is number && data.maxMarks >= 1 && data.maxMarks <= 10000
+        && data.color is string && data.color.size() >= 1 && data.color.size() <= 32
+        && data.studyMinutes is number && data.studyMinutes >= 0 && data.studyMinutes <= 1000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudySession(data, sessionId) {
+      return data.keys().hasAll(['id', 'ownerId', 'durationMinutes', 'mode', 'note', 'completedAt', 'createdAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'subjectId', 'durationMinutes', 'mode', 'note', 'completedAt', 'createdAt'])
+        && data.id == sessionId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && isOptionalId(data, 'subjectId')
+        && data.durationMinutes is number && data.durationMinutes >= 1 && data.durationMinutes <= 1440
+        && data.mode in ['pomodoro', 'manual']
+        && data.note is string && data.note.size() <= 400
+        && data.completedAt is string && data.completedAt.size() >= 1 && data.completedAt.size() <= 64
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNoteFolder(data, folderId) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'name', 'parentId', 'createdAt', 'updatedAt'])
+        && data.id == folderId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && isOptionalId(data, 'parentId')
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidNoteItem(data, noteId) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'content', 'tags', 'isFavorite', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'folderId', 'title', 'content', 'tags', 'isFavorite', 'shareCode', 'createdAt', 'updatedAt'])
+        && data.id == noteId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && isOptionalId(data, 'folderId')
+        && data.title is string && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 100000
+        && isValidTagsList(data.tags)
+        && data.isFavorite is bool
+        && (!('shareCode' in data) || data.shareCode == null || isValidShareCode(data.shareCode))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSharedNote(data, shareCode) {
+      return data.keys().hasAll(['code', 'ownerId', 'title', 'content', 'tags', 'authorName', 'authorCollege', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['code', 'ownerId', 'title', 'content', 'tags', 'authorName', 'authorCollege', 'createdAt', 'updatedAt'])
+        && data.code == shareCode
+        && isValidShareCode(data.code)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 100000
+        && isValidTagsList(data.tags)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 120
+        && data.authorCollege is string && data.authorCollege.size() <= 160
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCalendarEvent(data, eventId) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'category', 'color', 'date', 'time', 'location', 'notes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'title', 'category', 'color', 'date', 'time', 'location', 'notes', 'subjectId', 'createdAt', 'updatedAt'])
+        && data.id == eventId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.category in ['exam', 'assignment', 'fest', 'club', 'class', 'personal']
+        && data.color is string && data.color.size() >= 1 && data.color.size() <= 32
+        && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.time is string && data.time.size() <= 16
+        && data.location is string && data.location.size() <= 160
+        && data.notes is string && data.notes.size() <= 1000
+        && isOptionalId(data, 'subjectId')
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCoCurricularLog(data, logId) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'category', 'type', 'date', 'hours', 'role', 'certificateTitle', 'notes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'title', 'category', 'type', 'date', 'hours', 'role', 'certificateTitle', 'notes', 'createdAt', 'updatedAt'])
+        && data.id == logId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.category in ['NCC', 'NSS', 'Sports', 'Cultural Clubs', 'Hackathons', 'Other']
+        && data.type in ['Drill', 'Camp', 'Tournament', 'Workshop', 'Volunteering', 'Competition', 'Event']
+        && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.hours is number && data.hours >= 0 && data.hours <= 500
+        && data.role is string && data.role.size() <= 120
+        && data.certificateTitle is string && data.certificateTitle.size() <= 180
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTodoTask(data, taskId) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'priority', 'dueDate', 'completed', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'title', 'priority', 'subjectId', 'dueDate', 'completed', 'completedAt', 'createdAt', 'updatedAt'])
+        && data.id == taskId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 240
+        && data.priority in ['high', 'medium', 'low']
+        && isOptionalId(data, 'subjectId')
+        && data.dueDate is string && data.dueDate.size() <= 16
+        && data.completed is bool
+        && isOptionalString(data, 'completedAt', 64)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDailyHabit(data, habitId) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'targetDaysPerWeek', 'completedDates', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'title', 'targetDaysPerWeek', 'completedDates', 'createdAt', 'updatedAt'])
+        && data.id == habitId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.targetDaysPerWeek is number && data.targetDaysPerWeek >= 1 && data.targetDaysPerWeek <= 7
+        && isValidDateList(data.completedDates)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatChannel(data, channelId) {
+      return data.keys().hasAll(['id', 'type', 'name', 'description', 'createdBy', 'lastMessageText', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'type', 'name', 'description', 'inviteCode', 'createdBy', 'lastMessageText', 'createdAt', 'updatedAt'])
+        && data.id == channelId
+        && isValidId(data.id)
+        && data.type in ['direct', 'group']
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.description is string && data.description.size() <= 300
+        && (!('inviteCode' in data) || data.inviteCode == null || isValidInviteCode(data.inviteCode))
+        && isValidId(data.createdBy)
+        && data.lastMessageText is string && data.lastMessageText.size() <= 300
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChannelMembership(data, membershipId) {
+      return data.keys().hasAll(['channelId', 'uid', 'displayName', 'role', 'channelType', 'channelName', 'joinedAt'])
+        && data.keys().hasOnly(['channelId', 'uid', 'displayName', 'role', 'channelType', 'channelName', 'joinedAt'])
+        && isValidId(data.channelId)
+        && isValidId(data.uid)
+        && membershipId == (data.channelId + '__' + data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['owner', 'member']
+        && data.channelType in ['direct', 'group']
+        && data.channelName is string && data.channelName.size() >= 1 && data.channelName.size() <= 120
+        && data.joinedAt is timestamp;
+    }
+
+    function isValidGroupInvite(data, inviteCode) {
+      return data.keys().hasAll(['code', 'channelId', 'channelName', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['code', 'channelId', 'channelName', 'createdBy', 'createdAt'])
+        && data.code == inviteCode
+        && isValidInviteCode(data.code)
+        && isValidId(data.channelId)
+        && data.channelName is string && data.channelName.size() >= 1 && data.channelName.size() <= 120
+        && data.createdBy == request.auth.uid
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAttachment(att) {
+      return att == null || (
+        att is map
+        && (
+          (att.kind == 'note'
+            && att.keys().hasOnly(['kind', 'noteId', 'title', 'excerpt', 'tags', 'content'])
+            && isValidId(att.noteId)
+            && att.title is string && att.title.size() <= 200
+            && att.excerpt is string && att.excerpt.size() <= 300
+            && isValidTagsList(att.tags)
+            && att.content is string && att.content.size() <= 100000)
+          ||
+          (att.kind == 'event'
+            && att.keys().hasOnly(['kind', 'eventId', 'title', 'category', 'color', 'date', 'time', 'location'])
+            && isValidId(att.eventId)
+            && att.title is string && att.title.size() <= 180
+            && att.category in ['exam', 'assignment', 'fest', 'club', 'class', 'personal']
+            && att.color is string && att.color.size() <= 32
+            && att.date is string && att.date.size() == 10
+            && att.time is string && att.time.size() <= 16
+            && att.location is string && att.location.size() <= 160)
+        )
+      );
+    }
+
+    function isValidChatMessage(data, channelId, messageId) {
+      return data.keys().hasAll(['id', 'channelId', 'senderId', 'senderName', 'text', 'createdAt'])
+        && data.keys().hasOnly(['id', 'channelId', 'senderId', 'senderName', 'text', 'attachment', 'createdAt'])
+        && data.id == messageId
+        && isValidId(data.id)
+        && data.channelId == channelId
+        && isValidId(data.channelId)
+        && data.senderId == request.auth.uid
+        && isValidId(data.senderId)
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 120
+        && data.text is string && data.text.size() <= 4000
+        && (!('attachment' in data) || isValidAttachment(data.attachment))
+        && data.createdAt is timestamp;
+    }
+
+    // =========================================================================
+    // Private Student Profile & Workspace Subcollections
+    // =========================================================================
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidStudentProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidStudentProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'college', 'branch', 'year', 'bio', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['avatarDataUrl', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'updatedAt'])
+        );
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /subjects/{subjectId} {
+        allow get: if isOwner(userId) && isValidId(subjectId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(subjectId)
+          && isValidSubject(incoming(), subjectId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(subjectId)
+          && isValidSubject(incoming(), subjectId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'code', 'credits', 'targetScore', 'currentProgress', 'currentMarks', 'maxMarks', 'color', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['currentProgress', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['studyMinutes', 'updatedAt'])
+          );
+        allow delete: if isOwner(userId) && isValidId(subjectId);
+      }
+
+      match /studySessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(sessionId)
+          && isValidStudySession(incoming(), sessionId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      match /folders/{folderId} {
+        allow get: if isOwner(userId) && isValidId(folderId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(folderId)
+          && isValidNoteFolder(incoming(), folderId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(folderId)
+          && isValidNoteFolder(incoming(), folderId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'parentId', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(folderId);
+      }
+
+      match /notes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(noteId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(noteId)
+          && isValidNoteItem(incoming(), noteId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(noteId)
+          && isValidNoteItem(incoming(), noteId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'tags', 'folderId', 'isFavorite', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['shareCode', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['folderId', 'updatedAt'])
+          );
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      match /events/{eventId} {
+        allow get: if isOwner(userId) && isValidId(eventId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(eventId)
+          && isValidCalendarEvent(incoming(), eventId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(eventId)
+          && isValidCalendarEvent(incoming(), eventId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'color', 'date', 'time', 'location', 'notes', 'subjectId', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(eventId);
+      }
+
+      match /coCurricularLogs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(logId)
+          && isValidCoCurricularLog(incoming(), logId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(logId)
+          && isValidCoCurricularLog(incoming(), logId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'type', 'date', 'hours', 'role', 'certificateTitle', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      match /tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(taskId)
+          && isValidTodoTask(incoming(), taskId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(taskId)
+          && isValidTodoTask(incoming(), taskId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'completedAt', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['title', 'priority', 'subjectId', 'dueDate', 'updatedAt'])
+          );
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /habits/{habitId} {
+        allow get: if isOwner(userId) && isValidId(habitId);
+        allow list: if isOwner(userId) && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(habitId)
+          && isValidDailyHabit(incoming(), habitId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidId(habitId)
+          && isValidDailyHabit(incoming(), habitId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['completedDates', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(habitId);
+      }
+    }
+
+    // =========================================================================
+    // Non-PII Student Directory (Hashed Email Lookup for 1-on-1 Chat)
+    // =========================================================================
+
+    match /studentDirectory/{emailHash} {
+      allow get: if isVerifiedUser() && isValidHashId(emailHash);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidHashId(emailHash)
+        && isValidStudentDirectoryEntry(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidHashId(emailHash)
+        && isValidStudentDirectoryEntry(incoming())
+        && existing().uid == request.auth.uid
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'college', 'branch', 'year', 'updatedAt']);
+      allow delete: if isVerifiedUser()
+        && isValidHashId(emailHash)
+        && existing().uid == request.auth.uid;
+    }
+
+    // =========================================================================
+    // Cross-Device Shared Notes Hub
+    // =========================================================================
+
+    match /sharedNotes/{shareCode} {
+      allow get: if isVerifiedUser() && isValidShareCode(shareCode);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidShareCode(shareCode)
+        && isValidSharedNote(incoming(), shareCode)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidShareCode(shareCode)
+        && isValidSharedNote(incoming(), shareCode)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().code == existing().code
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'tags', 'authorName', 'authorCollege', 'updatedAt']);
+      allow delete: if isVerifiedUser()
+        && isValidShareCode(shareCode)
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // Real-Time Student Chat & Study Groups
+    // =========================================================================
+
+    match /groupInvites/{inviteCode} {
+      allow get: if isVerifiedUser() && isValidInviteCode(inviteCode);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidInviteCode(inviteCode)
+        && isValidGroupInvite(incoming(), inviteCode)
+        && incoming().createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/channels/$(incoming().channelId));
+      allow update: if false;
+      allow delete: if isVerifiedUser()
+        && isValidInviteCode(inviteCode)
+        && existing().createdBy == request.auth.uid;
+    }
+
+    match /channelMemberships/{membershipId} {
+      allow get: if isVerifiedUser()
+        && isValidId(membershipId)
+        && existing().uid == request.auth.uid;
+      allow list: if isVerifiedUser()
+        && existing().uid == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(membershipId)
+        && isValidChannelMembership(incoming(), membershipId)
+        && incoming().joinedAt == request.time
+        && existsAfter(/databases/$(database)/documents/channels/$(incoming().channelId))
+        && (
+          // Self-creating owner membership with newly created channel
+          (incoming().uid == request.auth.uid
+            && incoming().role == 'owner'
+            && getAfter(/databases/$(database)/documents/channels/$(incoming().channelId)).data.createdBy == request.auth.uid)
+          ||
+          // Joining an existing study group as member
+          (incoming().uid == request.auth.uid
+            && incoming().role == 'member'
+            && incoming().channelType == 'group'
+            && get(/databases/$(database)/documents/channels/$(incoming().channelId)).data.type == 'group')
+          ||
+          // Adding peer to a newly created 1-on-1 direct message channel
+          (incoming().uid != request.auth.uid
+            && incoming().role == 'member'
+            && incoming().channelType == 'direct'
+            && getAfter(/databases/$(database)/documents/channels/$(incoming().channelId)).data.type == 'direct'
+            && getAfter(/databases/$(database)/documents/channels/$(incoming().channelId)).data.createdBy == request.auth.uid)
+        );
+      allow update: if false;
+      allow delete: if isVerifiedUser()
+        && isValidId(membershipId)
+        && existing().uid == request.auth.uid;
+    }
+
+    match /channels/{channelId} {
+      allow get: if isChannelMember(channelId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(channelId)
+        && isValidChatChannel(incoming(), channelId)
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/channelMemberships/$(channelId + '__' + request.auth.uid));
+      allow update: if isChannelMember(channelId)
+        && isValidChatChannel(incoming(), channelId)
+        && incoming().id == existing().id
+        && incoming().type == existing().type
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'updatedAt'])
+          || (existing().createdBy == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'updatedAt']))
+        );
+      allow delete: if isVerifiedUser()
+        && isValidId(channelId)
+        && existing().createdBy == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow get: if isChannelMember(channelId) && isValidId(messageId);
+        allow list: if isChannelMember(channelId);
+        allow create: if isChannelMember(channelId)
+          && isValidId(messageId)
+          && isValidChatMessage(incoming(), channelId, messageId)
+          && incoming().createdAt == request.time
+          && getAfter(/databases/$(database)/documents/channels/$(channelId)).data.updatedAt == request.time;
+        allow update: if false;
+        allow delete: if isChannelMember(channelId)
+          && isValidId(messageId)
+          && existing().senderId == request.auth.uid;
+      }
+    }
+  }
+}

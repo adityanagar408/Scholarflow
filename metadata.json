@@ -1,0 +1,6 @@
+{
+  "name": "CampusDesk",
+  "description": "A clean, multi-device Student Portal & Campus Productivity PWA for notes, subjects, study groups, deadlines, co-curricular tracking, and Pomodoro focus.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
